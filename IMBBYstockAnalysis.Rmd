@@ -1,0 +1,151 @@
+---
+title: "Stock Analysis of IMBBY"
+output: rmarkdown::github_document
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(quantmod)
+library(rugarch)
+library(forecast)
+library(tseries)
+library(PerformanceAnalytics)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+```{r}
+getSymbols("IMBBY")
+#View(IMBBY)
+summary(IMBBY)
+chartSeries(IMBBY["2021-4"])
+chartSeries(IMBBY)
+addBBands()
+
+```
+Get Returns
+```{r}
+returns <- CalculateReturns(IMBBY$IMBBY.Close)
+returns <- returns[-1]
+hist(returns)
+
+chart.Histogram(returns,
+                methods = c('add.density','add.normal'),
+                colorset = c('yellow','red','blue'))
+
+chartSeries(returns,theme = 'white')
+```
+
+ARIMA Model
+```{r}
+
+modelfit <- auto.arima(IMBBY$IMBBY.Close,lambda = "auto")
+modelfit
+boxplot(modelfit$residuals)
+```
+Stationarity Test
+```{r}
+adf.test(IMBBY$IMBBY.Close)
+```
+Autocorrelation timeseries
+```{r}
+Acf(IMBBY$IMBBY.Close)
+```
+
+```{r}
+
+Pacf(IMBBY$IMBBY.Close)
+```
+
+```{r}
+ret_IMBBY <- 100 * diff(log(IMBBY$IMBBY.Close[3300:3600]))
+len_IMBBY <- length(ret_IMBBY)
+train <- ret_IMBBY[1:(0.9*len_IMBBY)]
+fit <- Arima(train, order= c(2,0,2))
+fit
+
+```
+```{r}
+preds <- predict(fit,n.head = len_IMBBY-(0.9*len_IMBBY))$pred
+preds
+
+test_forecast <- forecast(fit,h=25)
+plot(test_forecast, main = "IMBBY ARIMA forecast")
+accuracy(test_forecast)
+```
+```{r}
+accuracy(test_forecast)
+```
+
+```{r}
+Box.test(modelfit$residuals,lag = 2 ,type="Ljung-Box")
+Box.test(modelfit$residuals,type="Ljung-Box")
+```
+
+```{r}
+plot(as.ts(IMBBY$IMBBY.Close),col = "red")
+price_forecast <- forecast(modelfit,h=20)
+plot(price_forecast, col="darkgreen")
+
+```
+```{r}
+head(price_forecast$mean)
+```
+
+```{r}
+head(price_forecast$lower)
+```
+
+```{r}
+head(price_forecast$upper)
+```
+
+```{r}
+N <- length(IMBBY$IMBBY.Close)
+n <- 0.7*N
+
+train <- IMBBY$IMBBY.Close[1:n,]
+test <- IMBBY$IMBBY.Close[(n+1):N,]
+
+trainarimafit <- auto.arima(train, lambda = "auto")
+predlen=length(test)
+head(predlen)
+trainarimafit <- forecast(trainarimafit, h=predlen)
+#head(trainarimafit)
+meanvalues <- as.vector(trainarimafit$mean)
+precios <- as.vector(test$IMBBY.Close)
+par(plot(meanvalues,type="l",col ="red"))
+lines(precios,type = "l")
+```
+
+```{r}
+#We convert dataset as prophet input requires
+df <- data.frame(ds = index(IMBBY),
+                 y = as.numeric(IMBBY[,'IMBBY.Close']))
+
+#Annualized volatility
+sd(returns)
+
+charts.RollingPerformance(R = returns["2008::2020"],
+                          width = 23,
+                          fun = "sd.annualized",
+                          scale = 252,
+                          main = "IMBBY's monthly rolling volatility")
+```
+
+```{r}
+library(prophet)
+prophetpred <- prophet(df,daily.seasonality = TRUE)
+future <- make_future_dataframe(prophetpred, periods = 30)
+forecastprophet <- predict(prophetpred, future)
+
+par(plot(future,type="l",col="red"))
+
+```
+
