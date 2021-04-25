@@ -1,0 +1,85 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(fpp3)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
+Chapter 2
+tidy data frames are "tibbles"
+"tsibbles" extends "tibbles" with time index
+Tsibbles
+```{r}
+y <- tsibble(
+  Year = 2015:2019,
+  Observation = c(123,39,78,52,110),
+  index = Year
+)
+y
+
+## Convert tibble to tsibble
+z <- tibble(
+  Month = c("2019 Jan","2019 Feb"),
+  Observation = c(123,32)
+)
+z
+
+z %>% 
+  mutate(Month = yearmonth(Month)) %>%
+  as_tsibble(index = Month)
+
+```
+Frequency Function
+Annual	start:end
+Quarterly	yearquarter()
+Monthly	yearmonth()
+Weekly	yearweek()
+Daily	as_date(), ymd()
+Sub-daily	as_datetime(), ymd_hms()
+
+#> # A tsibble: 312 x 4 [4Y]
+#> # Key:       Length, Sex [14]
+Tsibble will output [4Y] to mean "interval" of index
+[14] means 14 separate time series identified by "length x Sex" 
+```{r}
+olympic_running
+olympic_running %>% distinct(Sex) #2 Sex
+olympic_running %>% distinct(Length) #7 Lengths
+#2 Sex x 7 Length = 14 Keys
+```
+
+dplyr functions such as mutate(), filter(), select() and summarise() to work with tsibble objects
+```{r}
+PBS
+
+PBS %>% 
+  filter(ATC2 == "A10") %>%
+  select(Month,Concession,Type,Cost) %>%
+  summarise(TotalC = sum(Cost)) %>%
+  mutate(Cost = TotalC/1e6) -> savedResult
+
+```
+
+```{r}
+prison <- readr::read_csv("https://OTexts.com/fpp3/extrafiles/prison_population.csv")
+
+prison
+prison <- prison %>%
+  mutate(Quarter = yearquarter(Date))  %>%
+  select(-Date) %>%
+  as_tsibble(key = c(State,Gender,Legal,Indigenous), index = Quarter)
+prison
+```
+
